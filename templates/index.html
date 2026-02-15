@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galactic Conquest - Battle Simulator</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>Galactic Conquest - Battle Simulator</h1>
+
+    <div class="panels">
+        <div class="panel attacker">
+            <h2>Attacker</h2>
+            <label for="atk-units">Units</label>
+            <input type="number" id="atk-units" value="10" min="2" max="99">
+
+            <label for="atk-hero">Commander</label>
+            <select id="atk-hero">
+                <option value="">None</option>
+                {% for name, die in hero_tiers.items() %}
+                <option value="{{ name }}">{{ name|capitalize }} (d{{ die }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="panel defender">
+            <h2>Defender</h2>
+            <label for="def-units">Units</label>
+            <input type="number" id="def-units" value="5" min="1" max="99">
+
+            <div class="checkbox-group">
+                <label>Structures:</label>
+                {% for key, struct in structures.items() %}
+                <label title="{{ struct.description }}">
+                    <input type="checkbox" name="def-struct" value="{{ key }}">
+                    {{ struct.name }}
+                    <span class="struct-desc">{{ struct.description }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="balance-panel">
+        <h2>Balance Tuning</h2>
+        <div class="balance-copy">
+            Leave all sliders at default to keep baseline Risk behavior when no hero/planet upgrades are active.
+        </div>
+        <div class="balance-grid">
+            {% for slider in balance_sliders %}
+            <div class="balance-item">
+                <label for="{{ slider.id }}">{{ slider.label }}: <span id="{{ slider.id }}-value">{{ slider.value }}</span></label>
+                <input
+                    type="range"
+                    id="{{ slider.id }}"
+                    data-balance-key="{{ slider.key }}"
+                    min="{{ slider.min }}"
+                    max="{{ slider.max }}"
+                    step="{{ slider.step }}"
+                    value="{{ slider.value }}"
+                >
+                <div class="balance-help">{{ slider.help }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="balance-summary">
+            Effective attacker bonus: <span id="atk-total-bonus">0</span>
+            <span class="balance-sep">|</span>
+            Effective defender bonus: <span id="def-total-bonus">0</span>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn-auto" onclick="autoBattle()">Auto-Resolve</button>
+        <button class="btn-round" onclick="fightRound()">Fight One Round</button>
+        <button class="btn-retreat" onclick="retreat()">Retreat</button>
+        <button class="btn-clear" onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <div id="battle-log">
+        <div style="color: #636e72;">Configure armies above and click a button to begin...</div>
+    </div>
+
+    <div class="sim-section">
+        <h2>Exact Probabilities (Taflin 2001)</h2>
+        <div class="sim-controls">
+            <button class="btn-exact" onclick="calcExact()">Calculate Exact Odds</button>
+            <span style="color: #636e72; font-size: 0.8rem;">Vanilla Risk only - ignores heroes, structures, and tuning sliders</span>
+        </div>
+        <div id="exact-results"></div>
+    </div>
+
+    <div class="sim-section">
+        <h2>Monte Carlo Simulation</h2>
+        <div class="sim-controls">
+            <label for="sim-count">Number of battles:</label>
+            <select id="sim-count">
+                <option value="1000">1,000</option>
+                <option value="10000" selected>10,000</option>
+                <option value="50000">50,000</option>
+            </select>
+            <button class="btn-sim" onclick="runSimulation()">Run Simulation</button>
+            <span style="color: #636e72; font-size: 0.8rem;">Includes heroes, structures, and tuning sliders</span>
+        </div>
+        <div id="sim-results"></div>
+    </div>
+
+    <script>
+        let roundNum = 0;
+        let inBattle = false;
+
+        function signedNumber(n) {
+            return n >= 0 ? `+${n}` : `${n}`;
+        }
+
+        function sliderValue(id, fallback = 0) {
+            const input = document.getElementById(id);
+            if (!input) {
+                return fallback;
+            }
+            const parsed = parseInt(input.value, 10);
+            return Number.isNaN(parsed) ? fallback : parsed;
+        }
+
+        function refreshBalanceSummary() {
+            const attackerAbility = sliderValue('atk-ability');
+            const defenderAbility = sliderValue('def-ability');
+            const heroLevel = sliderValue('hero-upgrade-level');
+            const planetLevel = sliderValue('planet-upgrade-level');
+            const heroPerUpgrade = sliderValue('hero-value-per-upgrade', 1);
+            const planetPerUpgrade = sliderValue('planet-value-per-upgrade', 1);
+
+            const atkTotal = attackerAbility + heroLevel * heroPerUpgrade;
+            const defTotal = defenderAbility + planetLevel * planetPerUpgrade;
+
+            document.getElementById('atk-total-bonus').textContent = signedNumber(atkTotal);
+            document.getElementById('def-total-bonus').textContent = signedNumber(defTotal);
+        }
+
+        function initBalanceSliders() {
+            document.querySelectorAll('input[data-balance-key]').forEach(input => {
+                const valueNode = document.getElementById(`${input.id}-value`);
+                const render = () => {
+                    if (valueNode) {
+                        valueNode.textContent = input.value;
+                    }
+                    refreshBalanceSummary();
+                };
+                input.addEventListener('input', render);
+                render();
+            });
+        }
+
+        function getBalanceConfig() {
+            const balance = {};
+            document.querySelectorAll('input[data-balance-key]').forEach(input => {
+                const key = input.dataset.balanceKey;
+                const parsed = parseInt(input.value, 10);
+                balance[key] = Number.isNaN(parsed) ? 0 : parsed;
+            });
+            return balance;
+        }
+
+        function getArmyConfig() {
+            const structs = [];
+            document.querySelectorAll('input[name="def-struct"]:checked').forEach(cb => {
+                structs.push(cb.value);
+            });
+
+            return {
+                attacker: {
+                    units: parseInt(document.getElementById('atk-units').value, 10) || 2,
+                    hero: document.getElementById('atk-hero').value || null
+                },
+                defender: {
+                    units: parseInt(document.getElementById('def-units').value, 10) || 1,
+                    structures: structs
+                },
+                balance: getBalanceConfig()
+            };
+        }
+
+        function appendLog(html) {
+            const log = document.getElementById('battle-log');
+            log.innerHTML += html;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function renderRound(round, num) {
+            let html = `<div class="round-header">--- Round ${num} ---</div>`;
+            html += `<div class="roll-atk">Attacker rolls: [${round.attacker_rolls.join(', ')}]</div>`;
+            html += `<div class="roll-def">Defender rolls: [${round.defender_rolls.join(', ')}]</div>`;
+
+            for (const note of round.notes) {
+                html += `<div class="note">${note}</div>`;
+            }
+
+            html += `<div>Losses - Attacker: ${round.attacker_losses}, Defender: ${round.defender_losses}</div>`;
+            html += `<div>Remaining - Attacker: ${round.attacker_remaining}, Defender: ${round.defender_remaining}</div>`;
+            return html;
+        }
+
+        function renderResult(result) {
+            const cls = result.winner === 'attacker' ? 'result-win' : 'result-loss';
+            const label = result.attacker_retreated ? 'RETREAT' : `${result.winner.toUpperCase()} WINS`;
+            return `<div class="${cls}">${label} - Attacker: ${result.attacker_remaining} | Defender: ${result.defender_remaining}</div>`;
+        }
+
+        async function autoBattle() {
+            const config = getArmyConfig();
+            clearLog();
+            roundNum = 0;
+            inBattle = false;
+
+            const resp = await fetch('/api/battle', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({...config, auto_resolve: true})
+            });
+            const data = await resp.json();
+
+            for (const round of data.rounds) {
+                roundNum++;
+                appendLog(renderRound(round, roundNum));
+            }
+            appendLog(renderResult(data));
+        }
+
+        async function fightRound() {
+            if (!inBattle) {
+                clearLog();
+                roundNum = 0;
+                inBattle = true;
+            }
+
+            const config = getArmyConfig();
+            const resp = await fetch('/api/round', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(config)
+            });
+            const data = await resp.json();
+            roundNum++;
+            appendLog(renderRound(data, roundNum));
+
+            // Update unit counts in the UI for next round.
+            document.getElementById('atk-units').value = data.attacker_remaining;
+            document.getElementById('def-units').value = data.defender_remaining;
+
+            if (data.defender_remaining <= 0) {
+                appendLog('<div class="result-win">ATTACKER WINS!</div>');
+                inBattle = false;
+            } else if (data.attacker_remaining <= 1) {
+                appendLog('<div class="result-loss">DEFENDER HOLDS - attacker out of units</div>');
+                inBattle = false;
+            }
+        }
+
+        function retreat() {
+            if (inBattle) {
+                appendLog('<div class="result-loss">ATTACKER RETREATS</div>');
+                inBattle = false;
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('battle-log').innerHTML = '';
+            roundNum = 0;
+            inBattle = false;
+        }
+
+        async function calcExact() {
+            const atkUnits = parseInt(document.getElementById('atk-units').value, 10) || 2;
+            const defUnits = parseInt(document.getElementById('def-units').value, 10) || 1;
+            const resultsDiv = document.getElementById('exact-results');
+            resultsDiv.innerHTML = '<div style="color: #636e72;">Calculating...</div>';
+
+            const resp = await fetch('/api/exact', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({attacker_units: atkUnits, defender_units: defUnits})
+            });
+            const d = await resp.json();
+
+            const atkPct = d.attacker_win_probability;
+            const defPct = d.defender_win_probability;
+
+            // Build single-roll breakdown for the current roll type.
+            const rollType = d.current_roll_type;
+            const rollProbs = d.single_roll_probabilities[rollType] || {};
+            let rollRows = '';
+            for (const [outcome, prob] of Object.entries(rollProbs)) {
+                const label = outcome.replace(/_/g, ' ');
+                rollRows += `<tr><td>${label}</td><td>${(prob * 100).toFixed(2)}%</td></tr>`;
+            }
+
+            resultsDiv.innerHTML = `
+                <div class="sim-bar-container">
+                    <div class="sim-bar-atk" style="width: ${atkPct}%">${atkPct}%</div>
+                    <div class="sim-bar-def" style="width: ${defPct}%">${defPct}%</div>
+                </div>
+                <table class="sim-table">
+                    <tr><th></th><th>Value</th></tr>
+                    <tr><td>Attacker Win Probability</td><td>${atkPct}%</td></tr>
+                    <tr><td>Defender Win Probability</td><td>${defPct}%</td></tr>
+                    <tr class="sim-sub"><td colspan="2" style="color: #6c5ce7; padding-top: 8px;">Per Roll (${rollType})</td></tr>
+                    <tr><td>Expected Attacker Losses</td><td>${d.expected_attacker_losses_per_roll}</td></tr>
+                    <tr><td>Expected Defender Losses</td><td>${d.expected_defender_losses_per_roll}</td></tr>
+                    ${rollRows}
+                </table>
+                <div style="color: #636e72; margin-top: 8px; font-size: 0.8rem;">Exact calculation via Markov chain (Taflin 2001)</div>
+            `;
+        }
+
+        async function runSimulation() {
+            const config = getArmyConfig();
+            const numBattles = parseInt(document.getElementById('sim-count').value, 10);
+            const resultsDiv = document.getElementById('sim-results');
+            resultsDiv.innerHTML = '<div style="color: #636e72;">Running simulation...</div>';
+
+            const resp = await fetch('/api/simulate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({...config, num_battles: numBattles})
+            });
+            const d = await resp.json();
+
+            const atkPct = d.attacker_win_pct;
+            const defPct = d.defender_win_pct;
+
+            resultsDiv.innerHTML = `
+                <div class="sim-bar-container">
+                    <div class="sim-bar-atk" style="width: ${atkPct}%">${atkPct}%</div>
+                    <div class="sim-bar-def" style="width: ${defPct}%">${defPct}%</div>
+                </div>
+                <table class="sim-table">
+                    <tr><th></th><th>Attacker</th><th>Defender</th></tr>
+                    <tr><td>Wins</td><td>${d.attacker_wins.toLocaleString()}</td><td>${d.defender_wins.toLocaleString()}</td></tr>
+                    <tr><td>Win Rate</td><td>${d.attacker_win_pct}%</td><td>${d.defender_win_pct}%</td></tr>
+                    <tr><td>Avg Losses</td><td>${d.avg_attacker_losses}</td><td>${d.avg_defender_losses}</td></tr>
+                    <tr><td>Avg Remaining (overall)</td><td>${d.avg_attacker_remaining}</td><td>${d.avg_defender_remaining}</td></tr>
+                    <tr class="sim-sub"><td colspan="3" style="color: #6c5ce7; padding-top: 8px;">When Attacker Wins</td></tr>
+                    <tr><td>Avg Remaining</td><td>${d.atk_win_avg_remaining}</td><td>0</td></tr>
+                    <tr><td>Avg Rounds</td><td colspan="2">${d.atk_win_avg_rounds}</td></tr>
+                    <tr class="sim-sub"><td colspan="3" style="color: #6c5ce7; padding-top: 8px;">When Defender Wins</td></tr>
+                    <tr><td>Avg Remaining</td><td>1</td><td>${d.def_win_avg_remaining}</td></tr>
+                    <tr><td>Avg Rounds</td><td colspan="2">${d.def_win_avg_rounds}</td></tr>
+                </table>
+                <div style="color: #636e72; margin-top: 8px; font-size: 0.8rem;">${d.num_battles.toLocaleString()} battles simulated</div>
+            `;
+        }
+
+        initBalanceSliders();
+    </script>
+</body>
+</html>
