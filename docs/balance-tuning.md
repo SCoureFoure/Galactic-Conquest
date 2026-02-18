@@ -27,9 +27,15 @@ The UI and API expose:
 Effective round modifiers are:
 
 - `attacker_total_bonus = attacker_ability + hero_upgrade_level * hero_value_per_upgrade`
-- `defender_total_bonus = defender_ability + planet_upgrade_level * planet_value_per_upgrade`
+- `defender_total_bonus = defender_ability + planet_upgrade_level * planet_value_per_upgrade` (flat mode only)
 
-Dice are still rolled normally and defender still wins ties. The totals above are added during each dice comparison.
+Planet upgrades now support multiple combat modes:
+
+- `flat_bonus` (default): adds a numeric defender bonus per level (existing behavior).
+- `reroll_lowest_defender`: planet upgrade power grants up to 2 rerolls of defender's lowest die each round.
+- `suppress_attacker_highest`: planet upgrade power reduces the attacker's highest die by up to 3 each round.
+
+All modes preserve base Risk behavior when `planet_upgrade_level = 0`.
 
 ## Endgame Balance Testing
 
@@ -41,3 +47,19 @@ To test parity goals:
 4. Run Monte Carlo simulation and compare win rates.
 
 This gives a quick check that "endgame attacker vs endgame defender" stays near even before introducing extra instant-speed variables.
+
+## Planet Defense Playtest Loop
+
+To compare combat-focused planet upgrades without using damage negation:
+
+1. Fix baseline armies (example: attacker 10, defender 10).
+2. Set hero and attacker sliders to your target test profile.
+3. Run simulations for each `planet_upgrade_mode` at levels 1, 2, and 3.
+4. Capture:
+   - Defender win rate
+   - Average rounds
+   - Average remaining units on win
+5. Prefer modes where:
+   - Defender win rate scales with level
+   - Battles stay decisive (round count does not explode)
+   - Endgame parity target remains near 50/50 for equal investment

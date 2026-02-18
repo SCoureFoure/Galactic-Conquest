@@ -1,0 +1,27 @@
+## Plan: Move balance tuning sliders into attacker/defender panels
+
+### Goal
+Move each balance slider into the panel of the side it tunes. Remove the standalone "Balance Tuning" panel. Attacker-related tuning lives in the Attacker panel, defender-related tuning lives in the Defender panel.
+
+### Changes
+
+**1. app.py — Split slider specs by side**
+- Replace `_balance_slider_specs()` with `_attacker_slider_specs()` and `_defender_slider_specs()`
+- Attacker sliders: attacker_ability, hero_upgrade_level, hero_value_per_upgrade
+- Defender sliders: defender_ability, planet_upgrade_level, planet_value_per_upgrade
+- Pass both to template as `attacker_sliders` and `defender_sliders`
+
+**2. templates/index.html — Reorganize panels**
+- Attacker panel: units, commander dropdown, then a "Tuning" sub-section with attacker sliders + effective attacker bonus display
+- Defender panel: units, structure checkboxes, planet upgrade mode dropdown, then a "Tuning" sub-section with defender sliders + effective defender bonus display
+- Remove the standalone `<div class="balance-panel">` entirely
+- Keep small "defaults = baseline Risk" note in each panel's tuning section
+- JS: `refreshBalanceSummary()` updates per-panel bonus displays instead of the old shared summary
+
+**3. static/style.css — Adjust styles**
+- Add `.panel-tuning` section styling (compact grid within panels)
+- Remove or repurpose `.balance-panel`, `.balance-grid`, `.balance-summary` styles
+- Keep `.balance-item`, `.balance-help` styles (reused inside panels)
+
+### No engine changes needed
+This is purely UI reorganization — all `data-balance-key` attributes and `getBalanceConfig()` JS function stay the same.

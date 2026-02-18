@@ -22,6 +22,27 @@
                 <option value="{{ name }}">{{ name|capitalize }} (d{{ die }})</option>
                 {% endfor %}
             </select>
+
+            <div class="panel-tuning">
+                <h3>Tuning</h3>
+                <div class="panel-tuning-hint">Defaults = baseline Risk</div>
+                {% for slider in attacker_sliders %}
+                <div class="balance-item">
+                    <label for="{{ slider.id }}">{{ slider.label }}: <span id="{{ slider.id }}-value">{{ slider.value }}</span></label>
+                    <input
+                        type="range"
+                        id="{{ slider.id }}"
+                        data-balance-key="{{ slider.key }}"
+                        min="{{ slider.min }}"
+                        max="{{ slider.max }}"
+                        step="{{ slider.step }}"
+                        value="{{ slider.value }}"
+                    >
+                    <div class="balance-help">{{ slider.help }}</div>
+                </div>
+                {% endfor %}
+                <div class="panel-bonus">Effective bonus: <span id="atk-total-bonus">0</span></div>
+            </div>
         </div>
 
         <div class="panel defender">
@@ -39,35 +60,44 @@
                 </label>
                 {% endfor %}
             </div>
-        </div>
-    </div>
 
-    <div class="balance-panel">
-        <h2>Balance Tuning</h2>
-        <div class="balance-copy">
-            Leave all sliders at default to keep baseline Risk behavior when no hero/planet upgrades are active.
-        </div>
-        <div class="balance-grid">
-            {% for slider in balance_sliders %}
-            <div class="balance-item">
-                <label for="{{ slider.id }}">{{ slider.label }}: <span id="{{ slider.id }}-value">{{ slider.value }}</span></label>
-                <input
-                    type="range"
-                    id="{{ slider.id }}"
-                    data-balance-key="{{ slider.key }}"
-                    min="{{ slider.min }}"
-                    max="{{ slider.max }}"
-                    step="{{ slider.step }}"
-                    value="{{ slider.value }}"
-                >
-                <div class="balance-help">{{ slider.help }}</div>
+            <div class="panel-tuning">
+                <h3>Tuning</h3>
+                <div class="panel-tuning-hint">Defaults = baseline Risk</div>
+
+                <div class="balance-item">
+                    <label for="planet-upgrade-mode">Planet upgrade combat mode</label>
+                    <select id="planet-upgrade-mode" data-balance-key="planet_upgrade_mode">
+                        {% for mode in planet_upgrade_modes %}
+                        <option value="{{ mode.value }}" {% if mode.value == default_planet_upgrade_mode %}selected{% endif %}>
+                            {{ mode.label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="balance-help" id="planet-upgrade-mode-help">
+                        {% for mode in planet_upgrade_modes %}
+                        {% if mode.value == default_planet_upgrade_mode %}{{ mode.help }}{% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {% for slider in defender_sliders %}
+                <div class="balance-item">
+                    <label for="{{ slider.id }}">{{ slider.label }}: <span id="{{ slider.id }}-value">{{ slider.value }}</span></label>
+                    <input
+                        type="range"
+                        id="{{ slider.id }}"
+                        data-balance-key="{{ slider.key }}"
+                        min="{{ slider.min }}"
+                        max="{{ slider.max }}"
+                        step="{{ slider.step }}"
+                        value="{{ slider.value }}"
+                    >
+                    <div class="balance-help">{{ slider.help }}</div>
+                </div>
+                {% endfor %}
+                <div class="panel-bonus">Effective bonus: <span id="def-total-bonus">0</span></div>
             </div>
-            {% endfor %}
-        </div>
-        <div class="balance-summary">
-            Effective attacker bonus: <span id="atk-total-bonus">0</span>
-            <span class="balance-sep">|</span>
-            Effective defender bonus: <span id="def-total-bonus">0</span>
         </div>
     </div>
 
@@ -130,32 +160,51 @@
             const planetLevel = sliderValue('planet-upgrade-level');
             const heroPerUpgrade = sliderValue('hero-value-per-upgrade', 1);
             const planetPerUpgrade = sliderValue('planet-value-per-upgrade', 1);
+            const planetUpgradeMode = document.getElementById('planet-upgrade-mode')?.value || 'flat_bonus';
 
             const atkTotal = attackerAbility + heroLevel * heroPerUpgrade;
-            const defTotal = defenderAbility + planetLevel * planetPerUpgrade;
+            const planetBonus = planetUpgradeMode === 'flat_bonus' ? planetLevel * planetPerUpgrade : 0;
+            const defTotal = defenderAbility + planetBonus;
 
             document.getElementById('atk-total-bonus').textContent = signedNumber(atkTotal);
             document.getElementById('def-total-bonus').textContent = signedNumber(defTotal);
         }
 
         function initBalanceSliders() {
-            document.querySelectorAll('input[data-balance-key]').forEach(input => {
+            const modeHelpByValue = {
+                {% for mode in planet_upgrade_modes %}
+                {{ mode.value|tojson }}: {{ mode.help|tojson }},
+                {% endfor %}
+            };
+
+            document.querySelectorAll('[data-balance-key]').forEach(input => {
                 const valueNode = document.getElementById(`${input.id}-value`);
                 const render = () => {
                     if (valueNode) {
                         valueNode.textContent = input.value;
                     }
+                    if (input.id === 'planet-upgrade-mode') {
+                        const helpNode = document.getElementById('planet-upgrade-mode-help');
+                        if (helpNode) {
+                            helpNode.textContent = modeHelpByValue[input.value] || '';
+                        }
+                    }
                     refreshBalanceSummary();
                 };
                 input.addEventListener('input', render);
+                input.addEventListener('change', render);
                 render();
             });
         }
 
         function getBalanceConfig() {
             const balance = {};
-            document.querySelectorAll('input[data-balance-key]').forEach(input => {
+            document.querySelectorAll('[data-balance-key]').forEach(input => {
                 const key = input.dataset.balanceKey;
+                if (input.tagName === 'SELECT') {
+                    balance[key] = input.value;
+                    return;
+                }
                 const parsed = parseInt(input.value, 10);
                 balance[key] = Number.isNaN(parsed) ? 0 : parsed;
             });

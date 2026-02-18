@@ -13,6 +13,7 @@ class TestCombatTuning:
         tuning = CombatTuning()
         assert tuning.attacker_total_bonus() == 0
         assert tuning.defender_total_bonus() == 0
+        assert tuning.normalized_planet_upgrade_mode() == "flat_bonus"
 
     def test_upgrade_levels_are_clamped(self):
         tuning = CombatTuning(
@@ -27,6 +28,26 @@ class TestCombatTuning:
         assert tuning.clamped_planet_upgrade_level() == 0
         assert tuning.attacker_total_bonus() == 6
         assert tuning.defender_total_bonus() == 0
+
+    def test_non_flat_planet_modes_do_not_add_defender_bonus(self):
+        tuning = CombatTuning(
+            defender_ability=2,
+            planet_upgrade_level=3,
+            planet_value_per_upgrade=2,
+            planet_upgrade_mode="reroll_lowest_defender",
+        )
+        assert tuning.planet_upgrade_bonus() == 0
+        assert tuning.defender_total_bonus() == 2
+        assert tuning.defender_rerolls_per_round() == 2
+
+    def test_unknown_planet_mode_falls_back_to_flat_bonus(self):
+        tuning = CombatTuning(
+            planet_upgrade_level=2,
+            planet_value_per_upgrade=2,
+            planet_upgrade_mode="unknown",
+        )
+        assert tuning.normalized_planet_upgrade_mode() == "flat_bonus"
+        assert tuning.defender_total_bonus() == 4
 
 
 class TestTunedRoundResolution:

@@ -89,40 +89,32 @@ input[type="number"], select {
     padding-left: 24px;
 }
 
-.balance-panel {
-    max-width: 900px;
-    margin: 0 auto 20px;
-    background: #141a2a;
-    border: 1px solid #2d3748;
-    border-radius: 8px;
-    padding: 20px;
+.panel-tuning {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #2d3748;
 }
 
-.balance-panel h2 {
+.panel-tuning h3 {
     color: #6c5ce7;
-    font-size: 1.1rem;
+    font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 1px;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 
-.balance-copy {
-    color: #a0aec0;
-    font-size: 0.85rem;
-    margin-bottom: 14px;
-}
-
-.balance-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+.panel-tuning-hint {
+    color: #636e72;
+    font-size: 0.75rem;
+    margin-bottom: 10px;
 }
 
 .balance-item {
-    padding: 10px 12px;
+    padding: 8px 10px;
     border: 1px solid #2d3748;
     border-radius: 6px;
     background: #1a2138;
+    margin-bottom: 8px;
 }
 
 .balance-item label {
@@ -142,15 +134,15 @@ input[type="number"], select {
     line-height: 1.35;
 }
 
-.balance-summary {
-    margin-top: 14px;
-    color: #c8d6e5;
-    font-size: 0.9rem;
+.panel-bonus {
+    margin-top: 8px;
+    color: #a0aec0;
+    font-size: 0.8rem;
 }
 
-.balance-sep {
-    color: #636e72;
-    margin: 0 8px;
+.panel-bonus span {
+    color: #c8d6e5;
+    font-weight: bold;
 }
 
 .controls {
@@ -320,10 +312,6 @@ button:hover { opacity: 0.85; }
 @media (max-width: 900px) {
     .panels {
         flex-direction: column;
-    }
-
-    .balance-grid {
-        grid-template-columns: 1fr;
     }
 
     .controls {

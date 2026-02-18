@@ -3,6 +3,7 @@ from __future__ import annotations
 import random as _random
 from typing import Any
 
+from engine.dice import reroll_lowest
 from engine.heroes import roll_with_hero
 from engine.models import Army, BattleResult, RoundResult
 from engine.structures import damage_absorbed, extra_defender_dice
@@ -43,13 +44,31 @@ def resolve_single_round(
 
     hero_upgrade_bonus = active_tuning.hero_upgrade_bonus()
     planet_upgrade_bonus = active_tuning.planet_upgrade_bonus()
+    planet_upgrade_mode = active_tuning.normalized_planet_upgrade_mode()
+    rerolls = active_tuning.defender_rerolls_per_round()
+    attacker_highest_penalty = active_tuning.attacker_highest_die_penalty()
     atk_bonus = active_tuning.attacker_total_bonus()
     def_bonus = active_tuning.defender_total_bonus()
+
+    if rerolls > 0:
+        for _ in range(rerolls):
+            original_lowest = def_rolls[-1] if def_rolls else 0
+            rerolled = reroll_lowest(def_rolls, rng=rng)
+            if rerolled and rerolled[-1] > original_lowest:
+                def_rolls = rerolled
+        notes.append(f"Planet upgrade rerolls defender's lowest die {rerolls} time{'s' if rerolls > 1 else ''}")
+
+    if attacker_highest_penalty > 0 and atk_rolls:
+        atk_rolls[0] = max(1, atk_rolls[0] - attacker_highest_penalty)
+        atk_rolls = sorted(atk_rolls, reverse=True)
+        notes.append(f"Planet upgrade suppresses highest attacker die by {attacker_highest_penalty}")
 
     if hero_upgrade_bonus > 0:
         notes.append(f"Hero upgrades add +{hero_upgrade_bonus} attacker ability")
     if planet_upgrade_bonus > 0:
         notes.append(f"Planet upgrades add +{planet_upgrade_bonus} defender ability")
+    if active_tuning.clamped_planet_upgrade_level() > 0 and planet_upgrade_mode != "flat_bonus":
+        notes.append(f"Planet upgrade mode: {planet_upgrade_mode}")
     if active_tuning.attacker_ability != 0:
         notes.append(f"Attacker base ability modifier: {active_tuning.attacker_ability:+d}")
     if active_tuning.defender_ability != 0:

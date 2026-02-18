@@ -13,7 +13,7 @@ from engine.probabilities import (
 )
 from engine.simulation import SimulationConfig, run_simulation
 from engine.structures import STRUCTURES
-from engine.tuning import CombatTuning
+from engine.tuning import CombatTuning, PLANET_UPGRADE_MODES
 
 app = Flask(__name__)
 
@@ -94,30 +94,25 @@ def _parse_tuning(data: dict) -> CombatTuning:
         ),
         max_hero_upgrade_level=DEFAULT_COMBAT_TUNING.max_hero_upgrade_level,
         max_planet_upgrade_level=DEFAULT_COMBAT_TUNING.max_planet_upgrade_level,
+        planet_upgrade_mode=(
+            raw_balance.get("planet_upgrade_mode")
+            if raw_balance.get("planet_upgrade_mode") in PLANET_UPGRADE_MODES
+            else DEFAULT_COMBAT_TUNING.planet_upgrade_mode
+        ),
     )
 
 
-def _balance_slider_specs() -> list[dict[str, Any]]:
+def _attacker_slider_specs() -> list[dict[str, Any]]:
     return [
         {
             "id": "atk-ability",
             "key": "attacker_ability",
-            "label": "Attacker ability value",
+            "label": "Ability value",
             "help": "Flat modifier added to each attacker comparison.",
             "min": ABILITY_MIN,
             "max": ABILITY_MAX,
             "step": 1,
             "value": DEFAULT_COMBAT_TUNING.attacker_ability,
-        },
-        {
-            "id": "def-ability",
-            "key": "defender_ability",
-            "label": "Defender ability value",
-            "help": "Flat modifier added to each defender comparison.",
-            "min": ABILITY_MIN,
-            "max": ABILITY_MAX,
-            "step": 1,
-            "value": DEFAULT_COMBAT_TUNING.defender_ability,
         },
         {
             "id": "hero-upgrade-level",
@@ -130,16 +125,6 @@ def _balance_slider_specs() -> list[dict[str, Any]]:
             "value": DEFAULT_COMBAT_TUNING.hero_upgrade_level,
         },
         {
-            "id": "planet-upgrade-level",
-            "key": "planet_upgrade_level",
-            "label": "Planet upgrade level",
-            "help": "Current planet defense tier. Zero keeps baseline Risk odds.",
-            "min": 0,
-            "max": DEFAULT_COMBAT_TUNING.max_planet_upgrade_level,
-            "step": 1,
-            "value": DEFAULT_COMBAT_TUNING.planet_upgrade_level,
-        },
-        {
             "id": "hero-value-per-upgrade",
             "key": "hero_value_per_upgrade",
             "label": "Hero value per upgrade",
@@ -148,6 +133,31 @@ def _balance_slider_specs() -> list[dict[str, Any]]:
             "max": VALUE_PER_UPGRADE_MAX,
             "step": 1,
             "value": DEFAULT_COMBAT_TUNING.hero_value_per_upgrade,
+        },
+    ]
+
+
+def _defender_slider_specs() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "def-ability",
+            "key": "defender_ability",
+            "label": "Ability value",
+            "help": "Flat modifier added to each defender comparison.",
+            "min": ABILITY_MIN,
+            "max": ABILITY_MAX,
+            "step": 1,
+            "value": DEFAULT_COMBAT_TUNING.defender_ability,
+        },
+        {
+            "id": "planet-upgrade-level",
+            "key": "planet_upgrade_level",
+            "label": "Planet upgrade level",
+            "help": "Current planet defense tier. Zero keeps baseline Risk odds.",
+            "min": 0,
+            "max": DEFAULT_COMBAT_TUNING.max_planet_upgrade_level,
+            "step": 1,
+            "value": DEFAULT_COMBAT_TUNING.planet_upgrade_level,
         },
         {
             "id": "planet-value-per-upgrade",
@@ -162,13 +172,36 @@ def _balance_slider_specs() -> list[dict[str, Any]]:
     ]
 
 
+def _planet_upgrade_mode_specs() -> list[dict[str, str]]:
+    return [
+        {
+            "value": "flat_bonus",
+            "label": "Flat Defender Bonus",
+            "help": "Current model: each level adds a numeric defender comparison bonus.",
+        },
+        {
+            "value": "reroll_lowest_defender",
+            "label": "Reroll Lowest Defender Die",
+            "help": "Each level grants reroll power (up to 2 rerolls) on defender's lowest die each round.",
+        },
+        {
+            "value": "suppress_attacker_highest",
+            "label": "Suppress Highest Attacker Die",
+            "help": "Each level reduces the attacker's top die (up to -3) before comparisons.",
+        },
+    ]
+
+
 @app.route("/")
 def index():
     return render_template(
         "index.html",
         hero_tiers=HERO_TIERS,
         structures=STRUCTURES,
-        balance_sliders=_balance_slider_specs(),
+        attacker_sliders=_attacker_slider_specs(),
+        defender_sliders=_defender_slider_specs(),
+        planet_upgrade_modes=_planet_upgrade_mode_specs(),
+        default_planet_upgrade_mode=DEFAULT_COMBAT_TUNING.planet_upgrade_mode,
     )
 
 

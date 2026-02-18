@@ -3,6 +3,7 @@ import random
 from engine.combat import resolve_battle, resolve_single_round
 from engine.models import Army, Hero, Structure
 from engine.structures import STRUCTURES
+from engine.tuning import CombatTuning
 
 
 class TestResolveSingleRound:
@@ -95,6 +96,46 @@ class TestResolveSingleRound:
         defender = Army(units=5, structures=[battery])
         result = resolve_single_round(attacker, defender, rng)
         assert len(result.defender_rolls) == 3  # 2 base + 1 bonus
+
+    def test_planet_mode_rerolls_lowest_defender_die(self):
+        class SequenceRng:
+            def __init__(self):
+                self._calls = iter([4, 4, 4, 2, 1, 6])
+
+            def randint(self, a, b):  # noqa: ARG002
+                return next(self._calls)
+
+        attacker = Army(units=6)
+        defender = Army(units=5)
+        tuning = CombatTuning(
+            planet_upgrade_level=1,
+            planet_value_per_upgrade=1,
+            planet_upgrade_mode="reroll_lowest_defender",
+        )
+        result = resolve_single_round(attacker, defender, SequenceRng(), tuning=tuning)
+        assert result.defender_rolls == [6, 2]
+        assert result.attacker_losses == 1
+        assert result.defender_losses == 1
+
+    def test_planet_mode_suppresses_highest_attacker_die(self):
+        class SequenceRng:
+            def __init__(self):
+                self._calls = iter([6, 6, 1, 5, 5])
+
+            def randint(self, a, b):  # noqa: ARG002
+                return next(self._calls)
+
+        attacker = Army(units=6)
+        defender = Army(units=5)
+        tuning = CombatTuning(
+            planet_upgrade_level=2,
+            planet_value_per_upgrade=1,
+            planet_upgrade_mode="suppress_attacker_highest",
+        )
+        result = resolve_single_round(attacker, defender, SequenceRng(), tuning=tuning)
+        assert result.attacker_rolls == [6, 4, 1]
+        assert result.attacker_losses == 1
+        assert result.defender_losses == 1
 
     def test_units_updated_after_round(self):
         rng = random.Random(42)
