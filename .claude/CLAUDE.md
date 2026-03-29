@@ -88,20 +88,20 @@ See `.claude/skills/hard/combat-balance.md` for balance tuning procedures.
 ## Project: Galactic Conquest
 
 **Type:** Python project (3.13+)
-**Framework:** Flask web app with a game engine backend
+**Framework:** Vercel serverless (Python 3.12 runtime) + static HTML frontend
 **Purpose:** Risk-style sci-fi strategy game — battle system prototype with web UI for simulation and balance testing
 
 ### Tech Stack
 
-- **Language:** Python 3.13
-- **Web:** Flask, Jinja2 templates, vanilla JS frontend
+- **Language:** Python 3.13 (local), Python 3.12 (Vercel runtime)
+- **Web:** Vercel serverless functions (`api/*.py`), vanilla JS frontend, static HTML/CSS
 - **Testing:** pytest
 - **Dependencies:** See `requirements.txt`
 
 ### Project Structure
 
 ```text
-engine/           # Core game engine (no Flask dependency)
+engine/           # Core game engine (no web framework dependency)
   models.py       # Dataclasses: Hero, Structure, Army, RoundResult, BattleResult
   dice.py         # Dice rolling with RNG injection for deterministic testing
   heroes.py       # Hero tier definitions, roll_with_hero()
@@ -109,11 +109,16 @@ engine/           # Core game engine (no Flask dependency)
   combat.py       # resolve_single_round(), resolve_battle()
   probabilities.py # Taflin exact probability matrices, Markov chain solver
   simulation.py   # Monte Carlo simulation runner (SimulationConfig, run_simulation)
-app.py            # Flask app with API endpoints
-templates/        # Jinja2 HTML templates
-  index.html      # Single-page UI: battle controls, log, simulation panels
-static/
-  style.css       # Dark theme styling
+api/              # Vercel serverless functions (each file = one endpoint)
+  _shared.py      # Shared helpers: _parse_army, _parse_tuning, send_json, read_json_body, spec builders
+  config.py       # GET  /api/config   — hero tiers, structures, slider specs
+  battle.py       # POST /api/battle   — full battle resolution
+  round.py        # POST /api/round    — single round resolution
+  simulate.py     # POST /api/simulate — Monte Carlo simulation
+  exact.py        # POST /api/exact    — Taflin exact probabilities
+index.html        # Static single-page UI; fetches /api/config on load to build the UI
+style.css         # Dark theme styling
+vercel.json       # Vercel config (Python 3.12 runtime for api/*.py)
 tests/            # pytest test suite
   test_dice.py
   test_combat.py
@@ -159,9 +164,12 @@ docs/
 # Run tests
 python -m pytest tests/ -v
 
-# Start web UI
-python app.py
-# Opens at http://localhost:5000
+# Local dev: Vercel CLI (recommended)
+vercel dev
+# Opens at http://localhost:3000
+
+# Or serve static files manually (API endpoints won't work)
+python -m http.server 8000
 
 # Quick balance simulation (Python REPL)
 from engine.simulation import SimulationConfig, run_simulation

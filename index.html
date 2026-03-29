@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Galactic Conquest - Battle Simulator</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
     <h1>Galactic Conquest - Battle Simulator</h1>
@@ -18,29 +18,12 @@
             <label for="atk-hero">Commander</label>
             <select id="atk-hero">
                 <option value="">None</option>
-                {% for name, die in hero_tiers.items() %}
-                <option value="{{ name }}">{{ name|capitalize }} (d{{ die }})</option>
-                {% endfor %}
             </select>
 
             <div class="panel-tuning">
                 <h3>Tuning</h3>
                 <div class="panel-tuning-hint">Defaults = baseline Risk</div>
-                {% for slider in attacker_sliders %}
-                <div class="balance-item">
-                    <label for="{{ slider.id }}">{{ slider.label }}: <span id="{{ slider.id }}-value">{{ slider.value }}</span></label>
-                    <input
-                        type="range"
-                        id="{{ slider.id }}"
-                        data-balance-key="{{ slider.key }}"
-                        min="{{ slider.min }}"
-                        max="{{ slider.max }}"
-                        step="{{ slider.step }}"
-                        value="{{ slider.value }}"
-                    >
-                    <div class="balance-help">{{ slider.help }}</div>
-                </div>
-                {% endfor %}
+                <div id="atk-tuning"></div>
                 <div class="panel-bonus">Effective bonus: <span id="atk-total-bonus">0</span></div>
             </div>
         </div>
@@ -50,52 +33,15 @@
             <label for="def-units">Units</label>
             <input type="number" id="def-units" value="5" min="1" max="99">
 
-            <div class="checkbox-group">
+            <div class="checkbox-group" id="def-structures">
                 <label>Structures:</label>
-                {% for key, struct in structures.items() %}
-                <label title="{{ struct.description }}">
-                    <input type="checkbox" name="def-struct" value="{{ key }}">
-                    {{ struct.name }}
-                    <span class="struct-desc">{{ struct.description }}</span>
-                </label>
-                {% endfor %}
             </div>
 
             <div class="panel-tuning">
                 <h3>Tuning</h3>
                 <div class="panel-tuning-hint">Defaults = baseline Risk</div>
-
-                <div class="balance-item">
-                    <label for="planet-upgrade-mode">Planet upgrade combat mode</label>
-                    <select id="planet-upgrade-mode" data-balance-key="planet_upgrade_mode">
-                        {% for mode in planet_upgrade_modes %}
-                        <option value="{{ mode.value }}" {% if mode.value == default_planet_upgrade_mode %}selected{% endif %}>
-                            {{ mode.label }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <div class="balance-help" id="planet-upgrade-mode-help">
-                        {% for mode in planet_upgrade_modes %}
-                        {% if mode.value == default_planet_upgrade_mode %}{{ mode.help }}{% endif %}
-                        {% endfor %}
-                    </div>
-                </div>
-
-                {% for slider in defender_sliders %}
-                <div class="balance-item">
-                    <label for="{{ slider.id }}">{{ slider.label }}: <span id="{{ slider.id }}-value">{{ slider.value }}</span></label>
-                    <input
-                        type="range"
-                        id="{{ slider.id }}"
-                        data-balance-key="{{ slider.key }}"
-                        min="{{ slider.min }}"
-                        max="{{ slider.max }}"
-                        step="{{ slider.step }}"
-                        value="{{ slider.value }}"
-                    >
-                    <div class="balance-help">{{ slider.help }}</div>
-                </div>
-                {% endfor %}
+                <div id="planet-upgrade-mode-container"></div>
+                <div id="def-tuning"></div>
                 <div class="panel-bonus">Effective bonus: <span id="def-total-bonus">0</span></div>
             </div>
         </div>
@@ -146,9 +92,7 @@
 
         function sliderValue(id, fallback = 0) {
             const input = document.getElementById(id);
-            if (!input) {
-                return fallback;
-            }
+            if (!input) return fallback;
             const parsed = parseInt(input.value, 10);
             return Number.isNaN(parsed) ? fallback : parsed;
         }
@@ -170,12 +114,81 @@
             document.getElementById('def-total-bonus').textContent = signedNumber(defTotal);
         }
 
-        function initBalanceSliders() {
-            const modeHelpByValue = {
-                {% for mode in planet_upgrade_modes %}
-                {{ mode.value|tojson }}: {{ mode.help|tojson }},
-                {% endfor %}
-            };
+        function buildSliders(containerId, sliders) {
+            const container = document.getElementById(containerId);
+            for (const slider of sliders) {
+                const div = document.createElement('div');
+                div.className = 'balance-item';
+
+                const label = document.createElement('label');
+                label.setAttribute('for', slider.id);
+                label.textContent = slider.label + ': ';
+                const valueSpan = document.createElement('span');
+                valueSpan.id = slider.id + '-value';
+                valueSpan.textContent = slider.value;
+                label.appendChild(valueSpan);
+
+                const input = document.createElement('input');
+                input.type = 'range';
+                input.id = slider.id;
+                input.dataset.balanceKey = slider.key;
+                input.min = slider.min;
+                input.max = slider.max;
+                input.step = slider.step;
+                input.value = slider.value;
+
+                const help = document.createElement('div');
+                help.className = 'balance-help';
+                help.textContent = slider.help;
+
+                div.appendChild(label);
+                div.appendChild(input);
+                div.appendChild(help);
+                container.appendChild(div);
+            }
+        }
+
+        function buildPlanetUpgradeModes(modes, defaultMode) {
+            const container = document.getElementById('planet-upgrade-mode-container');
+            const div = document.createElement('div');
+            div.className = 'balance-item';
+
+            const label = document.createElement('label');
+            label.setAttribute('for', 'planet-upgrade-mode');
+            label.textContent = 'Planet upgrade combat mode';
+
+            const select = document.createElement('select');
+            select.id = 'planet-upgrade-mode';
+            select.dataset.balanceKey = 'planet_upgrade_mode';
+
+            let defaultHelp = '';
+            for (const mode of modes) {
+                const opt = document.createElement('option');
+                opt.value = mode.value;
+                opt.textContent = mode.label;
+                if (mode.value === defaultMode) {
+                    opt.selected = true;
+                    defaultHelp = mode.help;
+                }
+                select.appendChild(opt);
+            }
+
+            const help = document.createElement('div');
+            help.className = 'balance-help';
+            help.id = 'planet-upgrade-mode-help';
+            help.textContent = defaultHelp;
+
+            div.appendChild(label);
+            div.appendChild(select);
+            div.appendChild(help);
+            container.appendChild(div);
+        }
+
+        function initBalanceSliders(planetUpgradeModes) {
+            const modeHelpByValue = {};
+            for (const mode of planetUpgradeModes) {
+                modeHelpByValue[mode.value] = mode.help;
+            }
 
             document.querySelectorAll('[data-balance-key]').forEach(input => {
                 const valueNode = document.getElementById(`${input.id}-value`);
@@ -216,7 +229,6 @@
             document.querySelectorAll('input[name="def-struct"]:checked').forEach(cb => {
                 structs.push(cb.value);
             });
-
             return {
                 attacker: {
                     units: parseInt(document.getElementById('atk-units').value, 10) || 2,
@@ -240,11 +252,9 @@
             let html = `<div class="round-header">--- Round ${num} ---</div>`;
             html += `<div class="roll-atk">Attacker rolls: [${round.attacker_rolls.join(', ')}]</div>`;
             html += `<div class="roll-def">Defender rolls: [${round.defender_rolls.join(', ')}]</div>`;
-
             for (const note of round.notes) {
                 html += `<div class="note">${note}</div>`;
             }
-
             html += `<div>Losses - Attacker: ${round.attacker_losses}, Defender: ${round.defender_losses}</div>`;
             html += `<div>Remaining - Attacker: ${round.attacker_remaining}, Defender: ${round.defender_remaining}</div>`;
             return html;
@@ -293,7 +303,6 @@
             roundNum++;
             appendLog(renderRound(data, roundNum));
 
-            // Update unit counts in the UI for next round.
             document.getElementById('atk-units').value = data.attacker_remaining;
             document.getElementById('def-units').value = data.defender_remaining;
 
@@ -335,7 +344,6 @@
             const atkPct = d.attacker_win_probability;
             const defPct = d.defender_win_probability;
 
-            // Build single-roll breakdown for the current roll type.
             const rollType = d.current_roll_type;
             const rollProbs = d.single_roll_probabilities[rollType] || {};
             let rollRows = '';
@@ -400,7 +408,47 @@
             `;
         }
 
-        initBalanceSliders();
+        async function initFromConfig() {
+            const resp = await fetch('/api/config');
+            const config = await resp.json();
+
+            // Hero dropdown
+            const heroSelect = document.getElementById('atk-hero');
+            for (const [name, die] of Object.entries(config.hero_tiers)) {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name.charAt(0).toUpperCase() + name.slice(1) + ` (d${die})`;
+                heroSelect.appendChild(opt);
+            }
+
+            // Structure checkboxes
+            const structGroup = document.getElementById('def-structures');
+            for (const [key, struct] of Object.entries(config.structures)) {
+                const label = document.createElement('label');
+                label.title = struct.description;
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.name = 'def-struct';
+                cb.value = key;
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(' ' + struct.name + ' '));
+                const desc = document.createElement('span');
+                desc.className = 'struct-desc';
+                desc.textContent = struct.description;
+                label.appendChild(desc);
+                structGroup.appendChild(label);
+            }
+
+            // Sliders and mode select
+            buildSliders('atk-tuning', config.attacker_sliders);
+            buildPlanetUpgradeModes(config.planet_upgrade_modes, config.default_planet_upgrade_mode);
+            buildSliders('def-tuning', config.defender_sliders);
+
+            // Wire up listeners now that DOM is fully populated
+            initBalanceSliders(config.planet_upgrade_modes);
+        }
+
+        initFromConfig();
     </script>
 </body>
 </html>
