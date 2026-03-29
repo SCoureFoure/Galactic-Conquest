@@ -409,7 +409,18 @@
         }
 
         async function initFromConfig() {
-            const resp = await fetch('/api/config');
+            let resp;
+            try {
+                resp = await fetch('/api/config');
+            } catch (e) {
+                document.getElementById('battle-log').innerHTML = `<div style="color:#d63031;">Failed to reach /api/config: ${e.message}</div>`;
+                return;
+            }
+            if (!resp.ok) {
+                const text = await resp.text();
+                document.getElementById('battle-log').innerHTML = `<div style="color:#d63031;">/api/config error ${resp.status}: ${text}</div>`;
+                return;
+            }
             const config = await resp.json();
 
             // Hero dropdown

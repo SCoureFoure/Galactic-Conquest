@@ -1,12 +1,41 @@
 {
   "version": 2,
   "builds": [
-    { "src": "api/config.py", "use": "@vercel/python" },
-    { "src": "api/battle.py", "use": "@vercel/python" },
-    { "src": "api/round.py", "use": "@vercel/python" },
-    { "src": "api/simulate.py", "use": "@vercel/python" },
-    { "src": "api/exact.py", "use": "@vercel/python" },
+    {
+      "src": "api/config.py",
+      "use": "@vercel/python",
+      "config": { "includeFiles": ["engine/**/*.py", "_shared.py"] }
+    },
+    {
+      "src": "api/battle.py",
+      "use": "@vercel/python",
+      "config": { "includeFiles": ["engine/**/*.py", "_shared.py"] }
+    },
+    {
+      "src": "api/round.py",
+      "use": "@vercel/python",
+      "config": { "includeFiles": ["engine/**/*.py", "_shared.py"] }
+    },
+    {
+      "src": "api/simulate.py",
+      "use": "@vercel/python",
+      "config": { "includeFiles": ["engine/**/*.py", "_shared.py"] }
+    },
+    {
+      "src": "api/exact.py",
+      "use": "@vercel/python",
+      "config": { "includeFiles": ["engine/**/*.py", "_shared.py"] }
+    },
     { "src": "index.html", "use": "@vercel/static" },
     { "src": "style.css", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/config", "dest": "/api/config.py" },
+    { "src": "/api/battle", "dest": "/api/battle.py" },
+    { "src": "/api/round", "dest": "/api/round.py" },
+    { "src": "/api/simulate", "dest": "/api/simulate.py" },
+    { "src": "/api/exact", "dest": "/api/exact.py" },
+    { "src": "/style.css", "dest": "/style.css" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
