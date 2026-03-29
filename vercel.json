@@ -1,1 +1,12 @@
-{}
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/config.py", "use": "@vercel/python" },
+    { "src": "api/battle.py", "use": "@vercel/python" },
+    { "src": "api/round.py", "use": "@vercel/python" },
+    { "src": "api/simulate.py", "use": "@vercel/python" },
+    { "src": "api/exact.py", "use": "@vercel/python" },
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "style.css", "use": "@vercel/static" }
+  ]
+}

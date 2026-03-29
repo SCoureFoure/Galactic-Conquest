@@ -109,8 +109,8 @@ engine/           # Core game engine (no web framework dependency)
   combat.py       # resolve_single_round(), resolve_battle()
   probabilities.py # Taflin exact probability matrices, Markov chain solver
   simulation.py   # Monte Carlo simulation runner (SimulationConfig, run_simulation)
+_shared.py        # Shared helpers: _parse_army, _parse_tuning, send_json, read_json_body, spec builders
 api/              # Vercel serverless functions (each file = one endpoint)
-  _shared.py      # Shared helpers: _parse_army, _parse_tuning, send_json, read_json_body, spec builders
   config.py       # GET  /api/config   — hero tiers, structures, slider specs
   battle.py       # POST /api/battle   — full battle resolution
   round.py        # POST /api/round    — single round resolution

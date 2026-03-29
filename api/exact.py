@@ -1,7 +1,3 @@
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 from http.server import BaseHTTPRequestHandler
 from _shared import _safe_int, send_json, read_json_body
 from engine.probabilities import (
