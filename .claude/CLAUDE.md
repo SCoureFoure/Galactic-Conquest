@@ -77,7 +77,7 @@ Before working in any area, load the zone soft skill first.
 | Working in... | Read | Purpose |
 | - | - | - |
 | `engine/` | `.claude/skills/soft/engine.md` | Game engine logic, combat model, RNG patterns |
-| `app.py`, `templates/`, `static/` | `.claude/skills/soft/frontend.md` | Flask app, UI, API endpoints |
+| `api/`, `index.html`, `style.css`, `_shared.py` | `.claude/skills/soft/frontend.md` | Serverless API functions, static UI, shared helpers |
 | `tests/` | `.claude/skills/soft/testing.md` | Test patterns, pytest conventions |
 | `docs/` | N/A | Pattern docs — update per MODE E rules |
 
@@ -118,7 +118,7 @@ api/              # Vercel serverless functions (each file = one endpoint)
   exact.py        # POST /api/exact    — Taflin exact probabilities
 index.html        # Static single-page UI; fetches /api/config on load to build the UI
 style.css         # Dark theme styling
-vercel.json       # Vercel config (Python 3.12 runtime for api/*.py)
+vercel.json       # Vercel config: builds with includeFiles + explicit routes for each endpoint
 tests/            # pytest test suite
   test_dice.py
   test_combat.py
