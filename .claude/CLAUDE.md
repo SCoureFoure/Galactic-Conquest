@@ -1,22 +1,32 @@
+# Galactic Conquest — Agent Instructions
+
+## Modes
+
 You operate in distinct modes:
 
-MODE A — EXPLAIN (default)
+### MODE A — EXPLAIN (default)
+
 Goal: minimize total tokens to understanding.
+
 - Answer directly and concisely.
 - Use analogies only when they genuinely clarify complex concepts.
 - Spend tokens only to prevent likely follow-up questions.
 - Avoid verbose or tutorial-style explanations.
 - Avoid filler or meta-offers (e.g., "just say the word", "if you want me to…"). Only suggest next steps when asked.
 
-MODE B — PLAN
+### MODE B — PLAN
+
 Goal: define a clear, approved approach before implementation.
+
 - Use for non-trivial work only (multi-file, architectural, or unclear requirements).
 - Present approach options if multiple valid paths exist.
 - Get user approval before implementing.
 - Skip for simple/obvious changes.
 
-MODE C — DEVELOP (when writing code)
+### MODE C — DEVELOP (when writing code)
+
 Goal: correctness and coverage, not minimal tokens.
+
 - Write clear, complete, production-ready code.
 - Include necessary structure for testing and maintainability.
 - Do NOT sacrifice correctness, edge cases, or testability to save tokens.
@@ -24,28 +34,34 @@ Goal: correctness and coverage, not minimal tokens.
 - After code changes, briefly state what changed and why that approach was chosen (1-2 sentences).
 - Don't narrate every tool call or explain obvious actions.
 
-MODE D — TEST
+### MODE D — TEST
+
 Goal: verify correctness and surface failures early.
+
 - Run automated tests if they exist.
 - Backend: pytest (unit + integration as needed).
 - Frontend: manual verification documented in response (automated tests later if needed).
 - If tests fail, return to DEVELOP.
 
-MODE E — DOCUMENT
+### MODE E — DOCUMENT
+
 Goal: capture reusable patterns and architectural decisions.
+
 - Create/update pattern docs when:
-  * New reusable pattern emerges (e.g., "two-level zoom interaction")
-  * Existing pattern changes significantly
-  * Architectural decision is made that should guide future work
+  - New reusable pattern emerges (e.g., "two-level zoom interaction")
+  - Existing pattern changes significantly
+  - Architectural decision is made that should guide future work
 - Don't document one-off implementations or obvious/standard practices.
 
-Rules:
+### Rules
+
 - If no mode is specified, assume EXPLAIN.
 - Never mix modes in the same response unless explicitly told.
 - When switching modes, state the mode in one short line.
 - Mode switching is automatic: if you're writing/editing code, you're in DEVELOP mode.
 
-Formatting:
+### Formatting
+
 - EXPLAIN → Direct answers. Use analogies sparingly when they add real value.
 - PLAN → Short, ordered plan with approval prompt.
 - DEVELOP → Code first, brief context after.
@@ -54,20 +70,37 @@ Formatting:
 
 ---
 
-## PROJECT: GALACTIC CONQUEST
+## Zone Dispatch
+
+Before working in any area, load the zone soft skill first.
+
+| Working in... | Read | Purpose |
+| - | - | - |
+| `engine/` | `.claude/skills/soft/engine.md` | Game engine logic, combat model, RNG patterns |
+| `app.py`, `templates/`, `static/` | `.claude/skills/soft/frontend.md` | Flask app, UI, API endpoints |
+| `tests/` | `.claude/skills/soft/testing.md` | Test patterns, pytest conventions |
+| `docs/` | N/A | Pattern docs — update per MODE E rules |
+
+See `.claude/skills/hard/combat-balance.md` for balance tuning procedures.
+
+---
+
+## Project: Galactic Conquest
 
 **Type:** Python project (3.13+)
 **Framework:** Flask web app with a game engine backend
 **Purpose:** Risk-style sci-fi strategy game — battle system prototype with web UI for simulation and balance testing
 
 ### Tech Stack
+
 - **Language:** Python 3.13
 - **Web:** Flask, Jinja2 templates, vanilla JS frontend
 - **Testing:** pytest
 - **Dependencies:** See `requirements.txt`
 
 ### Project Structure
-```
+
+```text
 engine/           # Core game engine (no Flask dependency)
   models.py       # Dataclasses: Hero, Structure, Army, RoundResult, BattleResult
   dice.py         # Dice rolling with RNG injection for deterministic testing
@@ -104,7 +137,7 @@ docs/
 - Structures use a damage-absorption model: absorb N defender losses per round (not dice manipulation)
 - Orbital Battery grants +1 defender die
 
-**Design philosophy (from user):**
+**Design philosophy:**
 - Base Risk probabilities must be preserved when no upgrades are active
 - Structures should "blunt the damage, not disallow it" — defenders take punches, not dodge them
 - End-game fully upgraded attacker vs fully upgraded defender should approach 50/50
@@ -153,10 +186,10 @@ result = run_simulation(cfg)
 
 ---
 
-DEVELOPMENT WORKFLOW
+## Development Workflow
 
 | Step | Purpose | Mode |
-| --- | --- | --- |
+| - | - | - |
 | Intake | Receive request, identify scope (trivial vs non-trivial). | EXPLAIN |
 | Discovery | Check `docs/patterns/` for relevant patterns; note gaps. | EXPLAIN |
 | Plan | Required for multi-file/architectural/unclear work; present options and get approval. | PLAN |
@@ -169,11 +202,12 @@ Update CLAUDE.md only when workflow or mode rules need to change.
 
 ---
 
-PATTERN DOCUMENTATION STRUCTURE
+## Pattern Documentation Structure
 
-Location: docs/patterns/{domain}-{pattern}.md
+Location: `docs/patterns/{domain}-{pattern}.md`
 
 Template:
+
 ```markdown
 # {Domain}: {Pattern Name}
 
@@ -194,6 +228,6 @@ YYYY-MM-DD: Brief changelog of what changed
 ```
 
 Deprecated patterns:
-- Prefix filename with "DEPRECATED-"
+- Prefix filename with `DEPRECATED-`
 - Add migration path in doc
 - Keep for reference, don't delete
